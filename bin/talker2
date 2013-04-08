@@ -1,0 +1,48 @@
+#!/usr/bin/python
+
+import sys
+import re
+import string
+import os
+
+def confread():
+	a=open("/etc/talker2.rc")
+	b=os.open("/dev/important",os.O_WRONLY)
+	#b=1
+	iz=[]
+	for pat in a.readlines():
+		(cucc,p)=string.split(pat[:-1],':',1)
+		iz.append((cucc,re.compile(p)))
+	return (iz,b)
+
+def say(what,o):
+	b=eval(what)
+	a=os.popen("festival --tts","w")
+	print b
+	a.write(b)
+	a.close()
+
+def finder(line,pats,b):
+	for (cucc,p) in pats:
+		o=p.search(line)
+		if o is not None:
+			say(cucc,o)
+			os.write(b,line)
+			return 1
+
+while 1:
+	#try:
+		(iz,b)=confread()
+		okay=1
+		while okay:
+			line=sys.stdin.readline()
+			if line=='':
+				okay=0
+			finder(line,iz,b)
+	#xcept:
+		os.write(b,"%s"%(sys.exc_info(),))
+	#ry:
+		os.close(b)
+	#xcept:
+		pass
+

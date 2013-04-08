@@ -1,0 +1,22 @@
+#!/usr/bin/python
+
+from colorize import colorize, filter_nonprintable
+import sys
+import os
+
+while 1:
+	try:
+		inf=os.open(sys.argv[1],os.O_RDONLY)
+		infile=os.fdopen(inf)
+		sys.stdout.write( colorize( filter_nonprintable( infile.readline() ) ) )
+		sys.stdout.flush()
+	except:
+		try:
+			infile.close()
+		except:
+			pass
+		try:
+			os.close(inf)
+		except:
+			pass
+

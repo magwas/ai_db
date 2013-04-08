@@ -1,0 +1,28 @@
+separator:############ problem
+err_cron_auth_fail:CRON.*: Authentication service cannot retrieve authentication info.
+err_cron_cant_ldap:CRON.*: pam_ldap: ldap_result Can't contact LDAP server
+err_k_sound-service:kmod: failed to exec /sbin/modprobe -s -k sound-service.*, errno = .
+err_k_sound-slot:kmod: failed to exec /sbin/modprobe -s -k sound-slot.*, errno = .
+err_k_net-pf:kmod: failed to exec /sbin/modprobe -s -k net-pf.*, errno = .
+err_usb_halt:usb-uhci.c: Host controller halted, trying to restart.
+err_usb_int:usb-uhci.c: interrupt, status .*, frame# .
+err_tcpdump_old:tcpdump uses obsolete .PF_INET,SOCK_PACKET.
+err_ldap.secret:.*: pam_ldap: could not open secret file /etc/ldap.secret .No such file or directory.
+err_cron_onknownuser:CRON.*: User not known to the underlying authentication module
+err_Xfreerights:rsbac_adf_request.*: request READ_WRITE_OPEN, pid .*, ppid ., prog_name XFree.*, uid ., target_type IPC, tid Shm-ID .*, attr , value ., result NOT_GRANTED by RC
+err_ssh_logout:buildbox@kusturica sshd.*: syslogin_perform_logout: logout.* returned an error
+separator:############ okay
+slapd_conn:slapd.*: daemon: conn=.* fd=.* connection from IP=127.0.0.1:.* .IP=0.0.0.0:34049. accepted.
+slapd_unbind:slapd.*: conn=.* op=.* UNBIND
+slapd_deferr:slapd.*: deferring operation
+dropclient:DropClient.*: 
+slapd_op:slapd.*: conn=.* op=. 
+slapd_closed:slapd.*: conn=-1 fd=.* closed
+ssh_cantsetuid:rsbac_adf_request.*: request CHANGE_OWNER, pid .*, ppid .*, prog_name ssh, uid .*, target_type PROCESS, tid .*, attr owner, value .*, result NOT_GRANTED by AUTH
+syslog_vc8:syslog-ng.*: Changing permissions on special file /dev/vc/8
+pump_gotoffer:pumpd.*: got dhcp offer
+pump_intfdata:pumpd.*: intf: [^i]
+pump_msg:pumpd.*: PUMP: 
+pump_start:pumpd.*: starting at
+pump_term:pumpd.*: terminating at root's request
+oafd_alive:oafd: server_is_alive:

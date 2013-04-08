@@ -1,0 +1,13 @@
+separator:separator:############ db
+packet:pre_catchall:pre_catchall IN=(?P<inif>.*) OUT= MAC=(?P<mac>.*) SRC=(?P<src>.*) DST=(?P<dst>.*) LEN=(?P<len>.*) TOS=0x(?P<tos>.*) PREC=0x(?P<prec>.*) TTL=(?P<ttl>.*) ID=(?P<id>[^ ]*) (?P<df>DF |)PROTO=(?P<proto>.*) SPT=(?P<spt>.*) DPT=(?P<dpt>[^ ]*) (?P<misc>.*)
+packet:pre_catchall:pre_catchall IN=(?P<inif>.*) OUT= MAC=(?P<mac>.*) SRC=(?P<src>.*) DST=(?P<dst>.*) LEN=(?P<len>.*) TOS=0x(?P<tos>.*) PREC=0x(?P<prec>.*) TTL=(?P<ttl>.*) ID=(?P<id>.*) PROTO=(?P<proto>.*) TYPE=(?P<spt>.*) CODE=(?P<dpt>[^ ]*) (?P<misc>.*)
+misc:syslogstat:syslog-ng\[(?P<pid>.*)\]: STATS: dropped (?P<val>.*)
+misc:mailsent:sSMTP\[(?P<pid>.*)\]: Sent mail for (?P<val>.*) .221 Bye.
+separator::separator:############ db/problem
+sudo:_sudo:sudo:      mag : TTY=(?P<tty>.*) ; PWD=(?P<pwd>.*) ; USER=(?P<username>.*) ; COMMAND=(?P<command>.*)
+packet:_output_catchall:output_catchall IN= OUT=(?P<outif>.*) SRC=(?P<src>.*) DST=(?P<dst>.*) LEN=(?P<len>.*) TOS=0x(?P<tos>.*) PREC=0x(?P<prec>.*) TTL=(?P<ttl>.*) ID=(?P<id>[^ ]*) (?P<df>DF |)PROTO=(?P<proto>.*) SPT=(?P<spt>.*) DPT=(?P<dpt>[^ ]*) (?P<misc>.*)
+packet:_input_catchall:input_catchall IN=lo OUT= MAC=(?P<mac>.*) SRC=(?P<src>.*) DST=(?P<dst>.*) LEN=(?P<len>.*) TOS=0x(?P<tos>.*) PREC=0x(?P<prec>.*) TTL=(?P<ttl>.*) ID=(?P<id>[^ ]*) (?P<df>DF |)PROTO=(?P<proto>.*) SPT=(?P<spt>.*) DPT=(?P<dpt>[^ ]*) (?P<misc>.*)
+rsbac:_rsbac:rsbac_adf_request..: request (?P<request>.*), pid (?P<pid>.*), ppid (?P<ppid>.*), prog_name (?P<prog_name>.*) uid (?P<uid>.*), target_type (?P<target_type>.*), tid (?P<tid>[^ ]*) (?P<misc>.*, |)attr (?P<attr>.*), value (?P<value>.*), result NOT_GRANTED by (?P<modules>.*)
+misc:_pump_got_ip:pumpd\[(?P<pid>.*)\]: intf: ip: (?P<val>.*)
+misc:_pump_configured:pumpd\[(?P<pid>.*)\]: configured interface eth0
+misc:_pump_down:pumpd\[(?P<pid>.*)\]: disabling interface eth0

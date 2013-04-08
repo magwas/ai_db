@@ -1,0 +1,277 @@
+#!/usr/bin/python
+
+import re
+import os
+import sys
+import signal
+import string
+import time
+import traceback
+import syslog
+
+
+signalled=0
+dump = 0
+
+patcount={}
+patcount_last=None
+db_patcount={}
+db_patcount_last=None
+
+def finder(progs,line):
+	global db_patcount
+	for k in progs.keys():
+		for (e,m) in progs[k]:
+			match=m.search(line)
+			if match is not None:
+				db_patcount[e]=db_patcount[e]+1
+				if config.debug.find("d") != -1:
+					print "found db %s"%e
+				return (match, k,e )
+	return None
+
+def exc_report():
+	etype, value, tb = sys.exc_info()
+	ret=traceback.format_exception(etype, value, tb)
+	syslog.syslog("%s"%ret)
+	return ret
+
+def sqlize(value):
+	value=string.replace(value,"\\","\\\\")
+	value=string.replace(value,"'","\\'")
+	return value
+def register_sql(cursor,o,table,event):
+		#print "%s(%s):%s"%(table,event,o.groupdict())
+		cols=[]
+		vals=[]
+		for (col,value) in o.groupdict().items():
+			if col=="thetime":
+				value=time.strftime("%Y ",time.localtime())+value
+			if value is not None:
+				cols.append(col)
+				value=sqlize(value)
+				vals.append(value)
+		sql="insert into %s (event,%s) values ('%s','%s')"%(
+			table,
+			string.join(cols,","),
+			event,
+			string.join(vals,"','"))
+		if config.debug.find("s") != -1:
+			print sql
+		cursor.execute(sql)
+		cursor.conn.commit()
+
+def dump_stats(cursor,outfile,name,hash,hash_old):
+	pcl=[]
+	for i in hash.items():
+		pcl.append((i[1],i[0]))
+	pcl.sort()
+	for i in pcl:
+		cmd= "insert into linestats (thetime,thename,theline,thecount) values ('%s','%s','%s',%s)"% (
+			time.strftime("%Y-%m-%d %H:%M:%S",time.localtime()),
+			sqlize(name),sqlize(i[1]),i[0])
+		if config.debug.find("s") != -1:
+			print cmd
+		cursor.execute(cmd)
+	cursor.conn.commit()
+	hash_old=hash.copy()
+	for i in hash.keys():
+		hash[i]=0
+	return hash_old
+
+def aifinder(pats,line):
+	global patcount
+	found=None
+	for (name,pat,l) in pats:
+		if pat.search(line) is not None:
+			found=1
+			if config.debug.find("a") != -1:
+				print "found ai %s"%name
+			patcount[name]=patcount[name]+1
+			break
+	return found
+
+def theloop(outfile,pats,progs):
+	global signalled
+	global patcount
+	while 1:
+		try:
+			line=sys.stdin.readline()
+		except IOError:
+			line="INTERNAL: EINTR on read"
+			if sys.exc_info()[1].errno != 4:
+				return
+			else:
+				continue
+		if signalled:
+			signalled=0
+			raise "reload"
+		if(line=='') and not signalled:
+			return
+		if aifinder(pats,line) is None:
+			match=finder(progs,line)
+			if match is not None:
+				(o,table,event)=match
+				register_sql(cursor,o,table,event)
+				if event[0]=='_':
+					os.write(outfile,"%s r: %s IMPORTANT\n"%(line[:-1],config.system))
+			else:
+				os.write(outfile,"%s r: %s\n"%(line[:-1],config.system))
+
+
+
+def getconfig():
+	global signalled
+	global patcount
+	global db_patcount
+	global patcount_last
+	global db_patcount_last
+
+	patcount_last=None
+	db_patcount_last=None
+	if(config.stdout):
+		of=1
+	else:
+		of=os.open("%s/p_%s"%(config.pipedir,config.system),os.O_WRONLY|os.O_APPEND)
+	patfile=open("%s/%s.ai"%(config.confdir,config.system))
+	rexes=patfile.readlines()
+	patfile.close()
+	pats=[]
+	patcount={}
+	for r in rexes:
+		(name,pat)=string.split(r[:-1],':',1)
+		patcount[name]=0
+		try:
+			pr=re.compile(pat)
+		except:
+			os.write(of,"INTERNAL: problem with pattern file:%s(%s):%s r: %s\n"%(config.system,name,pat,exc_report()))
+			signalled=1
+			pr=None
+		pats.append((name,pr,r))
+	try:
+		dbfile=open("%s/%s.db"%(config.confdir,config.system))
+		dbs=dbfile.readlines()
+		dbfile.close()
+	except:
+		os.write(of,"INTERNAL: problem with db file opening:%s r: %s\n"%(config.system,exc_report()))
+		signalled=1
+		progs=None
+	try:
+		progs={}
+		for line in dbs:
+			#print line
+			(table,eventid,p)=string.split(line[:-1],':',2)
+			db_patcount[eventid]=0
+			pattern=re.compile("(?P<thetime>... *[^ ]* ..:..:..) (?P<source>[^ ]*) "+p)
+			if progs.has_key(table):
+				progs[table].append((eventid,re.compile(pattern)))
+			else:
+				progs[table]=[(eventid,re.compile(pattern))]
+	except:
+		os.write(of,"INTERNAL: problem with db file:%s r: %s\n"%(config.system,exc_report()))
+		signalled=1
+		progs=None
+	os.write(of,"INTERNAL: Pattern file is reloaded r: %s\n"%(config.system))
+	return (of,pats,progs)
+
+def sighand(a,b):
+	global signalled
+	signalled=1
+
+def sigalrm(a,b):
+	global dump
+	global signalled
+	dump=1
+	signalled=1
+
+def printhelp():
+	print """
+usage: ai_db [arg=value]
+	host:	the hostname. default is localhost
+	database: the name of the database used. default is "log"
+	user:	the user name. default is log
+	passwd:	user password. default is ""
+	pipedir: directory for pipes. default is "/var/ai_db"
+	confdir: directory for configs. default is "/etc/ai_db"
+	opt:	database options. default is ""
+	tty:	tty given to database. default is ""
+	system: the system name. you should set it
+	stdout: if given, output goes to stdout
+	debug: if given, debugoutput goes to stdout. a=ai, d=db, s=sql
+"""
+
+class struct:
+	pass
+
+config=struct()
+config.host="localhost"
+config.user="log"
+config.database="log"
+config.passwd=""
+config.opt=""
+config.tty=""
+config.pipedir="/var/ai_db"
+config.confdir="/etc/ai_db"
+config.system=None
+config.stdout=None
+config.debug=""
+config.dbtype="sqlite"
+
+for arg in sys.argv[1:]:
+	(name,value)=string.split(arg,"=",1)
+	if name == "help":
+		printhelp()
+		sys.exit(1)
+	config.__dict__[name]=value
+
+if config.dbtype=="sqlite":
+	from sqlite import connect, Error
+	connectstring=config.database
+else:
+	from pgdb import connect, Error
+	connectstring="%s:%s:%s:%s:%s:%s"%(
+		config.host,
+		config.database,
+		config.user,
+		config.passwd,
+		config.opt,
+		config.tty)
+
+if not config.system:
+	print "no system name given"
+	printhelp()
+	sys.exit(1)
+	
+syslog.openlog("ai_db/%s"%config.system,syslog.LOG_PID)
+
+signal.signal(10,sighand)
+signal.signal(signal.SIGALRM,sigalrm)
+signal.alarm(60)
+while 1:
+	conn=connect(connectstring)
+	cursor=conn.cursor()
+	cursor.conn=conn
+	if dump:
+		patcount_last=dump_stats(cursor,outfile,"%s.ai"%(config.system),patcount,patcount_last)
+		db_patcount_last=dump_stats(cursor,outfile,"%s.db"%(config.system),db_patcount,db_patcount_last)
+		signal.alarm(60)
+		dump=0
+	else:
+		(outfile,prog,progs)=getconfig()
+	try:
+		theloop(outfile,prog,progs)
+	except "reload":
+		print "%s reloading"%(config.system)
+		conn.commit()
+		conn.close()
+		continue
+	except Error:
+		os.write(outfile,"INTERNAL: problem with database:%s r: %s\n"%(config.system,exc_report()))
+		continue
+	except:
+		os.write(outfile,"INTERNAL: %s r: %s\n"%(config.system,exc_report()))
+	break
+dump_stats(cursor,outfile,"%s.ai"%(config.system),patcount,patcount_last)
+dump_stats(cursor,outfile,"%s.db"%(config.system),db_patcount,patcount_last)
+syslog.closelog()
+
